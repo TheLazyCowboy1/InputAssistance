@@ -17,7 +17,7 @@ public class Plugin : BaseUnityPlugin
 {
     public const string MOD_ID = "LazyCowboy.InputAssistance";
     public const string MOD_NAME = "Input Assistance";
-    public const string MOD_VERSION = "0.0.1";
+    public const string MOD_VERSION = "0.0.3";
 
     //made static for easy access. Hopefully this mod should never be initiated twice anyway...
     public static ConfigOptions Options;
@@ -85,6 +85,7 @@ public class Plugin : BaseUnityPlugin
 
     private static int backflipCounter = 0, backflipDir = 0, rollJumpCounter = 0, slideCounter = 0, slideDir = 0, slideJumpCounter = 0;
     private static bool rollDown = false, slideDown = false;
+    private static int extThrowCounter = 0;
 
     private void Player_checkInput(On.Player.orig_checkInput orig, Player self)
     {
@@ -92,16 +93,19 @@ public class Plugin : BaseUnityPlugin
 
         if (self.playerState.playerNumber != 0) return; //only applies to Player1
 
+        int origX = self.input[0].x, origY = self.input[0].y;
+        bool origJump = self.input[0].jmp;
+
         //Timers and counters and stuff
         if (backflipCounter > 0 && backflipDir != 0)
         {
             self.input[0].x = backflipDir;
-            if (self.input[0].jmp) self.input[1].jmp = false; //try to allow jumping again if manually pressed
+            if (origJump) self.input[1].jmp = false; //try to allow jumping again if manually pressed
             self.input[0].jmp = true; //also jump; that's nice
         }
         if (rollJumpCounter > 0 || slideJumpCounter > 0)
         {
-            if (self.input[0].jmp) self.input[1].jmp = false; //try to allow jumping again if manually pressed
+            if (origJump) self.input[1].jmp = false; //try to allow jumping again if manually pressed
             self.input[0].jmp = true;
         }
         if (slideCounter > 0)
@@ -116,6 +120,7 @@ public class Plugin : BaseUnityPlugin
         rollJumpCounter--;
         slideCounter--;
         slideJumpCounter--;
+        extThrowCounter--;
 
         //Backflip/roll button
         if (Input.GetKey(Options.BackflipKey.Value))
@@ -133,11 +138,12 @@ public class Plugin : BaseUnityPlugin
 
                     backflipDir = -dir;
                     backflipCounter = Options.BackflipLength.Value;
+                    slideCounter = 0; //stop sliding
                     Logger.LogDebug("Backflip!");
                 }
             }
             //trying to start rolling?
-            else if (backflipCounter <= 0 && self.input[0].x != 0 && self.input[0].y < 1)
+            else if (backflipCounter <= 0 && self.input[0].x != 0 && origY < 1)
             {
                 self.input[0].y = -1;
                 self.input[0].downDiagonal = self.input[0].x;
@@ -171,16 +177,17 @@ public class Plugin : BaseUnityPlugin
                     self.input[0].x = slideDir;
                     self.input[0].y = -1;
                     self.input[0].downDiagonal = slideDir;
-                    slideCounter = 4;
+                    slideCounter = Options.SlideLength.Value;
                     Logger.LogDebug("Slide!");
                 }
             }
-            else if (self.animation == Player.AnimationIndex.BellySlide)
+            else if (self.animation == Player.AnimationIndex.BellySlide && origX != -slideDir)
             {
                 //if already sliding, keep sliding
                 self.input[0].x = slideDir;
                 self.input[0].y = -1;
                 self.input[0].downDiagonal = slideDir;
+                slideCounter = Math.Max(slideCounter, 0); //used for super extended slides
             }
             slideDown = true;
         }
@@ -189,7 +196,7 @@ public class Plugin : BaseUnityPlugin
             if (self.animation == Player.AnimationIndex.BellySlide)
             {
                 self.input[0].jmp = true;
-                slideJumpCounter = Options.SlideLength.Value;
+                slideJumpCounter = 15;
                 slideCounter = 0; //stop trying to maintain the slide; we're jumping out of it!
                 Logger.LogDebug("Slide jump!");
             }
@@ -206,9 +213,24 @@ public class Plugin : BaseUnityPlugin
         {
             if (self.bodyChunks[0].contactPoint.x != 0)
             {
-                if (self.input[0].x == 0) self.input[0].x = self.bodyChunks[0].contactPoint.x; //hug walls
-                if (self.input[0].jmp) self.input[1].jmp = false; //jump constantly
+                if (self.input[0].x == 0 && self.bodyChunks[1].contactPoint.y >= 0) self.input[0].x = self.bodyChunks[0].contactPoint.x; //hug walls
+                if (origJump && self.animation != Player.AnimationIndex.LedgeCrawl) self.input[1].jmp = false; //jump constantly, unless climbing a ledge
             }
+        }
+
+        if (Options.EasyExtSlide.Value)
+        {
+            if (extThrowCounter < 0 && slideCounter >= 0 && origX == 0 && self.input[0].thrw && !self.input[1].thrw)
+            {
+                extThrowCounter = 2;
+            }
+        }
+
+
+        if (extThrowCounter >= 0 && slideCounter >= 0) //must be in a slide triggered by slide button
+        {
+            self.input[0].thrw = extThrowCounter == 0; //don't throw unless time ticks down to 0
+            self.input[0].x = -slideDir;
         }
     }
 

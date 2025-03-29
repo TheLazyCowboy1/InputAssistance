@@ -14,6 +14,7 @@ public class ConfigOptions : OptionInterface
         SlideLength = this.config.Bind<int>("SlideLength", 15, new ConfigAcceptableRange<int>(0, 80));
         AutoWallJump = this.config.Bind<bool>("AutoWallJump", true, new ConfigurableInfo("When jump is held, climbs up a ledge if possible.\nOtherwise, if not moving away from a wall, attempts to wall jump."));
         HoldToGrabPoles = this.config.Bind<bool>("HoldToGrabPoles", true, new ConfigurableInfo("If GRAB is held and the player is airborne, attempts to grab poles."));
+        EasyExtSlide = this.config.Bind<bool>("EasyExtSlide", true);
     }
 
     //configs
@@ -23,6 +24,7 @@ public class ConfigOptions : OptionInterface
     public readonly Configurable<int> SlideLength;
     public readonly Configurable<bool> AutoWallJump;
     public readonly Configurable<bool> HoldToGrabPoles;
+    public readonly Configurable<bool> EasyExtSlide;
     //public readonly Configurable<KeyCode> RollKey; //absorbed into Backflip
 
     public override void Initialize()
@@ -53,7 +55,9 @@ public class ConfigOptions : OptionInterface
             new OpLabel(t, y -= s, "Auto Walljump"),
             new OpCheckBox(AutoWallJump, l, y) { description = "When jump is held, climbs up a ledge if possible.\nOtherwise, if not moving away from a wall, attempts to wall jump." },
             new OpLabel(t, y -= s, "Grab poles with GRAB"),
-            new OpCheckBox(HoldToGrabPoles, l, y) { description = "If GRAB is held and the player is airborne, attempts to grab poles." }
+            new OpCheckBox(HoldToGrabPoles, l, y) { description = "If GRAB is held and the player is airborne, attempts to grab poles." },
+            new OpLabel(t, y -= s, "Easy Extended Slide"),
+            new OpCheckBox(EasyExtSlide, l, y) { description = "Makes it easier to perform an extended slide by automatically throwing backwards if throwing an object during a slide.\nONLY applies if neither left nor right is held down." }
         );
     }
 
